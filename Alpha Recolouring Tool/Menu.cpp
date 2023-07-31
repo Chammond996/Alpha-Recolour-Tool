@@ -2,11 +2,6 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <cmath>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 Menu::Menu(unsigned size_x, unsigned size_y, sf::Color bg, sf::Color bg_hover)
 {
@@ -132,10 +127,12 @@ void Menu::NewPalette()
 		this->PopUpWindow("Uhh Oh!!", "Maximum palettes reached (10)");
 		return;
 	}
-	Palette* new_palette = new Palette("Palette " + std::to_string(this->palettes.size()+1));
+	Palette* new_palette = new Palette("Palette " + std::to_string(this->palettes.size()+1), this->font);
 	this->palettes.emplace_back(new_palette);
 
 	this->LoadPalettes();
+
+	this->CursorMoved(this->cursorPos);
 }
 void Menu::LoadPalettes()
 {
@@ -145,11 +142,124 @@ void Menu::LoadPalettes()
 	{
 		_count++;
 		yOffset = 40 * _count;
-		Button* palette_new_btn = new Button(sf::Vector2i(200, 40 + yOffset), sf::Vector2f(100, 40), this->menu_bar.getFillColor(), this->menu_bar_hover.getFillColor(), palette->name, this->GetFont());
+		Button* palette_new_btn = new Button(sf::Vector2i(200, 40 + yOffset), sf::Vector2f(100, 40), this->menu_bar.getFillColor(), this->menu_bar_hover.getFillColor(), palette->GetName(), this->GetFont());
 		palette_new_btn->show = false;
 		palette_new_btn->palleteDropDown = true;
 		this->buttons.emplace_back(palette_new_btn);
 	}
+}
+
+void Menu::OpenPalette(std::string name)
+{
+	for (auto palette : this->palettes)
+	{
+		if (palette->GetName() == name)
+		{
+			palette->Open();
+			return;
+		}
+	}
+
+
+}
+
+void Menu::TickPalettes()
+{
+
+	for (auto palette : this->palettes)
+	{
+		palette->Tick();
+	}
+}
+
+void Menu::Draw(sf::RenderWindow& window)
+{
+
+	if (this->hover)
+		window.draw(this->menu_bar_hover);
+	else
+		window.draw(this->menu_bar);
+
+	for (auto btn : this->buttons)
+	{
+		if (!btn->show)
+			continue;
+
+		if (btn->hover)
+			window.draw(btn->bg_hover);
+		else
+			window.draw(btn->bg);
+
+		window.draw(btn->text);
+
+	}
+
+}
+
+void Menu::CursorMoved(sf::Vector2i pos)
+{
+	this->cursorPos = pos;
+
+	bool show_palette_subs = false;
+	for (Button* btn : this->buttons)
+	{
+		if (btn->bg.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)))
+			btn->hover = true;
+		else
+			btn->hover = false;
+
+		if (btn->bg.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)) && btn->GetName().find("Palette") != std::string::npos)
+		{
+			show_palette_subs = true;
+		}
+
+	}
+	for (auto sub : this->buttons)
+	{
+		if (sub->palleteDropDown)
+			sub->show = show_palette_subs ? true : false;
+	}
+}
+
+int Menu::LeftClick(sf::Vector2i pos)
+{
+	for (Button* btn : this->buttons)
+	{
+		if (btn->bg.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)))
+		{
+			if (btn->GetName() == "Load")
+				this->actions_to_call.push_back(btn->GetName());
+			else if (btn->GetName() == "Help")
+				this->HelpWindow();
+			else if (btn->GetName() == "New Palette")
+				this->NewPalette();
+
+			for (auto palette : this->palettes)
+			{
+				if (btn->GetName() == palette->GetName())
+				{
+					if (palette->IsOpen())
+					{
+						palette->Close();
+						break;
+					}
+					this->OpenPalette(btn->GetName());
+					break;
+				}
+			}
+
+			//std::cout << "Clicked button - " << btn->GetName() << "\n";
+			break;
+		}
+
+	}
+	return 0;
+}
+
+void Menu::RightClick(sf::Vector2i pos)
+{
+
+	
 }
 
 void Menu::PopUpWindow(std::string title, std::string msg)
@@ -188,166 +298,4 @@ void Menu::PopUpWindow(std::string title, std::string msg)
 		sf::sleep(sf::milliseconds(100));
 
 	}
-}
-
-void Menu::OpenPalette(std::string name)
-{
-	for (auto palette : this->palettes)
-	{
-		if (palette->name == name)
-		{
-			if (!palette->isOpen)
-			{
-				palette->isOpen = true;
-				palette->palette_window.create(sf::VideoMode(500, 300), name, sf::Style::Close);
-
-				for (int i = 0; i < 10; i++)
-				{
-					PaletteSquare* palette_square = new PaletteSquare();
-					palette_square->palette_box.setSize(sf::Vector2f(20, 20));
-					palette_square->palette_box.setFillColor(this->menu_bar.getFillColor());
-					palette_square->palette_box.setPosition(10 + (30 * i), 20);
-					palette->palette_squares.emplace_back(palette_square);
-				}
-			}
-			return;
-		}
-	}
-
-
-}
-
-void Menu::TickPalettes()
-{
-
-	for (auto palette : this->palettes)
-	{
-		if (palette->needsClose)
-		{
-			palette->palette_window.close();
-			palette->needsClose = false;
-			palette->isOpen = false;
-			break;
-		}
-
-		if (palette->palette_window.isOpen())
-		{
-			palette->palette_window.clear(sf::Color::Black);
-
-			sf::Event event;
-			while (palette->palette_window.pollEvent(event))
-			{
-				if (event.type == sf::Event::Closed) {
-					palette->palette_window.close();
-					palette->isOpen = false;
-					break;
-				}
-				else if (sf::Mouse::isButtonPressed(sf::Mouse::Right))
-				{
-					std::cout << "Clicked palette " << palette->name << "\n";
-					for (auto box : palette->palette_squares)
-					{
-						if (box->palette_box.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(palette->palette_window).x, sf::Mouse::getPosition(palette->palette_window).y)))
-						{
-				
-						}
-					}
-				}
-			}
-			
-			for (auto palette_square : palette->palette_squares)
-				palette->palette_window.draw(palette_square->palette_box);
-
-			palette->palette_window.display();
-		}
-	}
-}
-
-void Menu::Draw(sf::RenderWindow& window)
-{
-
-	if (this->hover)
-		window.draw(this->menu_bar_hover);
-	else
-		window.draw(this->menu_bar);
-
-	for (auto btn : this->buttons)
-	{
-		if (!btn->show)
-			continue;
-
-		if (btn->hover)
-			window.draw(btn->bg_hover);
-		else
-			window.draw(btn->bg);
-
-		window.draw(btn->text);
-
-	}
-
-}
-
-void Menu::CursorMoved(sf::Vector2i pos)
-{
-
-	bool show_palette_subs = false;
-	for (Button* btn : this->buttons)
-	{
-		if (btn->bg.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)))
-			btn->hover = true;
-		else
-			btn->hover = false;
-
-		if (btn->bg.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)) && btn->GetName().find("Palette") != std::string::npos)
-		{
-			show_palette_subs = true;
-		}
-
-	}
-	for (auto sub : this->buttons)
-	{
-		if (sub->palleteDropDown)
-			sub->show = show_palette_subs ? true : false;
-	}
-}
-
-int Menu::LeftClick(sf::Vector2i pos)
-{
-	for (Button* btn : this->buttons)
-	{
-		if (btn->bg.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)))
-		{
-			if (btn->GetName() == "Load")
-				this->actions_to_call.push_back(btn->GetName());
-			else if (btn->GetName() == "Help")
-				this->HelpWindow();
-			else if (btn->GetName() == "New Palette")
-				this->NewPalette();
-
-			for (auto palette : this->palettes)
-			{
-				if (btn->GetName() == palette->name)
-				{
-					if (palette->isOpen)
-					{
-						palette->needsClose = true;
-						break;
-					}
-					this->OpenPalette(btn->GetName());
-					break;
-				}
-			}
-
-			//std::cout << "Clicked button - " << btn->GetName() << "\n";
-			break;
-		}
-
-	}
-	return 0;
-}
-
-void Menu::RightClick(sf::Vector2i pos)
-{
-
-	
 }

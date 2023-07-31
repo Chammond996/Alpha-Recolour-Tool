@@ -1,5 +1,26 @@
 // Alpha Recolouring Tool.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//7
+//
+
+#include "ColourPatcher.h"
+#include "SFML/Main.hpp"
+
+//#include "DataPacket.h"
+
+#ifdef _DEBUG
+int main()
+#else
+int WinMain()
+#endif
+{
+
+    ColourPatcher patcher;
+    patcher.Start();
+
+
+    return 0;
+}
+/*
+* 
 #include "SFML/Graphics.hpp"
 #include <iostream>
 
@@ -120,26 +141,6 @@ int main(int argc, char** argv) {
         window.draw(colors);
         window.display();
     }
-
-    return 0;
-}
-/*
-
-#include "ColourPatcher.h"
-#include "SFML/Main.hpp"
-
-//#include "DataPacket.h"
-
-#ifdef _DEBUG
-int main()
-#else
-int WinMain()
-#endif
-{
-
-    ColourPatcher patcher;
-    patcher.Start();
-
 
     return 0;
 }

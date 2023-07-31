@@ -93,7 +93,7 @@ void ColourPatcher::RunLoop()
 
 		this->window.display();
 
-		sf::sleep(sf::milliseconds(100));
+		sf::sleep(sf::milliseconds(60));
 	}
 }
 
