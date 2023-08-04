@@ -2,18 +2,28 @@
 
 #include <iostream>
 #include <filesystem>
+#include <fstream>
 
 void ColourPatcher::Start()
 {
-	if(this->window_resizeable)
-		this->window.create(sf::VideoMode(this->window_size_x, this->window_size_y), this->window_name, sf::Style::Default);
-	else
-		this->window.create(sf::VideoMode(this->window_size_x, this->window_size_y), this->window_name, sf::Style::Close);
-
 	this->menu = new Menu(this->window_size_x, 40, sf::Color(99, 99, 99, 255), sf::Color(135, 135, 135, 255));
 
-	this->font.loadFromFile("font.ttf");
-	this->RunLoop();
+
+	if (this->menu->loaded)
+	{
+		if (this->window_resizeable)
+			this->window.create(sf::VideoMode(this->window_size_x, this->window_size_y), this->window_name, sf::Style::Default);
+		else
+			this->window.create(sf::VideoMode(this->window_size_x, this->window_size_y), this->window_name, sf::Style::Close);
+
+		this->window.setIcon(this->menu->icon_dimensions.x, this->menu->icon_dimensions.y, this->menu->icon_pixels.data());
+
+		this->font = this->menu->GetFont();
+		
+
+		//this->font.loadFromFile("font.ttf");
+		this->RunLoop();
+	}
 }
 
 void ColourPatcher::RunLoop()
@@ -95,6 +105,7 @@ void ColourPatcher::RunLoop()
 
 		sf::sleep(sf::milliseconds(60));
 	}
+	this->menu->Save();
 }
 
 void ColourPatcher::LeftClick(sf::Vector2i pos)
@@ -114,21 +125,19 @@ void ColourPatcher::LeftClick(sf::Vector2i pos)
 	}
 	if (this->loaded > 0)
 	{
-		for (auto box : this->images[this->current_selection]->original_palette)
+		std::vector<PaletteSquare*> boxes;
+		boxes = this->images[this->current_selection]->original_palette;
+		boxes.insert(boxes.end(), this->images[this->current_selection]->new_palette.begin(), this->images[this->current_selection]->new_palette.end());
+
+		for (auto box : boxes)
 		{
 			if (box->palette_box.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)))
 			{
 				sf::Color box_colour = box->palette_box.getFillColor();
-				this->lastColourClicked.setString("Last Colour Clicked -- R:" + std::to_string(box_colour.r) + ", G:" + std::to_string(box_colour.g) + ", B:" + std::to_string(box_colour.b));
-				break;
-			}
-		}
-		for (auto box : this->images[this->current_selection]->new_palette)
-		{
-			if (box->palette_box.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)))
-			{
-				sf::Color box_colour = box->palette_box.getFillColor();
-				this->lastColourClicked.setString("Last Colour Clicked -- R:" + std::to_string(box_colour.r) + ", G:" + std::to_string(box_colour.g) + ", B:" + std::to_string(box_colour.b));
+				//this->lastColourClicked.setFillColor(box_colour);
+				this->lastColourClicked.setString("Last Colour Clicked - R:" + std::to_string(box_colour.r) + ", G:" + std::to_string(box_colour.g) + ", B:" + std::to_string(box_colour.b));
+				this->lastColourClickedBox.setFillColor(box_colour);
+				this->lastColourClickedBox.setPosition(this->lastColourClicked.getGlobalBounds().width + 10 + this->lastColourClicked.getPosition().x, 45);
 				break;
 			}
 		}
@@ -143,6 +152,16 @@ void ColourPatcher::RightClick(sf::Vector2i pos)
 }
 void ColourPatcher::DoActions()
 {
+	if (this->menu->PaletteTargetColourUpdated())
+	{
+		this->paletteColourTargerted = this->menu->GetPaletteTargetColour();
+		sf::Color box_colour = this->paletteColourTargerted;
+		this->paletteColourTargetedText.setString("Palette Colour Targeted:  - R:" + std::to_string(box_colour.r) + ", G:" + std::to_string(box_colour.g) + ", B:" + std::to_string(box_colour.b));
+		this->paletteColourTargetedBox.setFillColor(this->paletteColourTargerted);
+		this->paletteColourTargetedBox.setPosition(this->paletteColourTargetedText.getGlobalBounds().width + this->paletteColourTargetedText.getPosition().x + 10, 45);
+	}
+
+
 	for (auto act : this->menu->actions_to_call)
 	{
 		std::cout << "Completing action : " << act << "\n";
@@ -155,6 +174,8 @@ void ColourPatcher::DoActions()
 }
 void ColourPatcher::CursorMoved(sf::Vector2i pos)
 {
+	if (!this->menu)
+		return;
 	this->cursor_pos = pos;
 
 	this->menu->CursorMoved(pos);
@@ -181,14 +202,14 @@ void ColourPatcher::LoadImages()
 					img->original_tx.create(img->original_image.getSize().x, img->original_image.getSize().y);
 					img->original_tx.update(img->original_image);
 					img->original_sprite.setTexture(img->original_tx);
-					img->original_sprite.setPosition((this->window_size_x / 2) - (100 + img->original_image.getSize().x), 200);
+					img->original_sprite.setPosition((this->window_size_x / 2) - (100 + img->original_image.getSize().x), 250);
 					img->name = entry.path().filename().string();
 
 					img->new_image = img->original_image;
 					img->new_tx.create(img->original_image.getSize().x, img->original_image.getSize().y);
 					img->new_tx.update(img->original_image);
 					img->new_sprite.setTexture(img->new_tx);
-					img->new_sprite.setPosition((this->window_size_x / 2) + (100 - img->new_image.getSize().x), 200);
+					img->new_sprite.setPosition((this->window_size_x / 2) + (100 - img->new_image.getSize().x), 250);
 
 					this->images.emplace_back(img);
 
@@ -239,6 +260,16 @@ void ColourPatcher::LoadImages()
 		this->lastColourClicked.setFillColor(sf::Color(99, 99, 99, 255));
 		this->lastColourClicked.setString("Last Colour Clicked: n/a");
 		this->lastColourClicked.setPosition(10, 45);
+		this->lastColourClickedBox.setSize(sf::Vector2f(20, 20));
+		this->lastColourClickedBox.setPosition(this->lastColourClicked.getGlobalBounds().width + 10 + this->lastColourClicked.getPosition().x, 45);
+
+		this->paletteColourTargetedText.setFont(this->font);
+		this->paletteColourTargetedText.setCharacterSize(16);
+		this->paletteColourTargetedText.setFillColor(sf::Color(99, 99, 99, 255));
+		this->paletteColourTargetedText.setString("Palette Colour Targeted: n/a");
+		this->paletteColourTargetedText.setPosition(this->window_size_x/2, 45);
+		this->paletteColourTargetedBox.setSize(sf::Vector2f(20, 20));
+		this->paletteColourTargetedBox.setPosition((this->window_size_x / 2) + this->paletteColourTargetedText.getGlobalBounds().width + 10, 45);
 
 		int i = 0;
 		int amount = 0;
@@ -301,6 +332,9 @@ void ColourPatcher::Draw(sf::RenderWindow& window)
 			window.draw(palette_squares->palette_box);
 
 		window.draw(this->lastColourClicked);
+		window.draw(this->lastColourClickedBox);
+		window.draw(this->paletteColourTargetedText);
+		window.draw(this->paletteColourTargetedBox);
 	}
 }
 

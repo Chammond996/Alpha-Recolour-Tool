@@ -13,7 +13,7 @@ class Palette
 private:
 
 	std::string name = "";
-	std::vector<PaletteSquare*> palette_squares;
+	std::vector<std::unique_ptr<PaletteSquare>> palette_squares;
 	sf::RenderWindow palette_window;
 	std::vector<sf::Color> paletteColours;
 	bool isOpen = false;
@@ -31,6 +31,7 @@ private:
 	bool addingNewColour = false;
 	double colourPickerHue = 0.0;
 	sf::VertexArray colourWheel;
+
 	void ModulateColourPicker(double hue);
 	void CreatePaletteSquares();
 
@@ -38,6 +39,9 @@ private:
 	
 
 	sf::Clock paletteActionClock;
+
+	bool paletteColourUpdated = false;
+	sf::Color colourTargeted;
 
 
 public:
@@ -60,6 +64,10 @@ public:
 		this->colourWheelText.setFillColor(this->BUTTON_BACKGROUND);
 		this->colourWheelText.setString("Use arrows to change hue\n           <-- /  --> \nLeft click to sample\nRight click to set colour\n   R: n/a, G: n/a, B: n/a");
 	}
+	~Palette();
+
+	bool IsColourUpdated() { return this->paletteColourUpdated; }
+	sf::Color GetTargetedColour();
 
 	void Tick();
 	void Open();
@@ -67,5 +75,9 @@ public:
 
 	bool IsOpen() { return this->isOpen; }
 	std::string GetName() { return this->name; }
+
+	int GetSize();
+
+	std::vector<sf::Color> GetColours();
 
 };

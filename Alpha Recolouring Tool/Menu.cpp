@@ -5,19 +5,18 @@
 
 Menu::Menu(unsigned size_x, unsigned size_y, sf::Color bg, sf::Color bg_hover)
 {
+	//this->icon_image = icon_image;
 	this->menu_bar.setSize(sf::Vector2f(size_x, size_y));
 	this->menu_bar_hover.setSize(sf::Vector2f(size_x, size_y));
 
 	this->menu_bar.setFillColor(bg);
 	this->menu_bar_hover.setFillColor(bg_hover);
 
-	// Load font
-	bool can_load_buttons = true;// this->LoadData();
+	// Load Datapack
+	bool loaded_data = this->LoadData();
 
-	if(!this->font.loadFromFile("font.ttf"))
-		can_load_buttons = false;
 
-	if (!can_load_buttons)
+	if (!loaded_data)
 	{
 		std::cout << "Menu failed to load properly..\n";
 		return;
@@ -45,33 +44,38 @@ Menu::Menu(unsigned size_x, unsigned size_y, sf::Color bg, sf::Color bg_hover)
 	palette_new_btn->palleteDropDown = true;
 	this->buttons.emplace_back(palette_new_btn);
 
+	this->LoadPaletteColours();
 	this->LoadPalettes();
 
+	this->loaded = true;
+
+}
+void Menu::Save()
+{
+	this->SavePaletteColours();
 }
 bool Menu::LoadData()
 {
-	// Open input file and read size
-	std::ifstream inputFile("font.dat", std::ios::binary);
-	if (!inputFile) {
-		std::cerr << "Could not open font.dat for reading\n";
-		return false;
-	}
-
-	unsigned int dataSize;
-	inputFile.read(reinterpret_cast<char*>(&dataSize), sizeof(dataSize));  // read size
-
-	// Read font data
-	std::vector<char> dataBuffer(dataSize);
-	if (!inputFile.read(dataBuffer.data(), dataSize))
+	std::ifstream inputFile("data.pack", std::ios::binary);
+	if (inputFile)
 	{
-		std::cerr << "Error reading font data from font.dat\n";
-		return false;
+		// Read the width and height of the image
+
+		inputFile.read(reinterpret_cast<char*>(&this->icon_dimensions.x), sizeof(this->icon_dimensions.x));
+		inputFile.read(reinterpret_cast<char*>(&this->icon_dimensions.y), sizeof(this->icon_dimensions.y));
+
+		// Read the pixel data
+		std::size_t size = this->icon_dimensions.x * this->icon_dimensions.y * 4;
+		this->icon_pixels.resize(size);
+		inputFile.read(reinterpret_cast<char*>(this->icon_pixels.data()), size);
+		inputFile.close();
+		//this->window.setIcon(width, height, this->icon_pixels.data());
 	}
 
-	if (!this->font.loadFromMemory(dataBuffer.data(), dataBuffer.size()))
+	if (!this->font.loadFromFile("font.ttf"))
 		return false;
-	
-	return true;
+
+
 }
 
 void Menu::HelpWindow()
@@ -163,13 +167,36 @@ void Menu::OpenPalette(std::string name)
 
 }
 
+Menu::~Menu()
+{
+	for (auto palette : this->palettes)
+		delete palette;
+	this->palettes.clear();
+}
+
 void Menu::TickPalettes()
 {
 
 	for (auto palette : this->palettes)
 	{
 		palette->Tick();
+
+		if (palette->IsColourUpdated())
+		{
+			this->paletteColourTargeted = palette->GetTargetedColour();
+			std::cout << "Colour update! New colour targeted from palette " << palette->GetName() << "\n";
+			this->paletteTargetColourUpdated = true;
+		}
 	}
+}
+bool Menu::PaletteTargetColourUpdated()
+{
+	if (this->paletteTargetColourUpdated)
+	{
+		this->paletteTargetColourUpdated = false;
+		return true;
+	}
+	return false;
 }
 
 void Menu::Draw(sf::RenderWindow& window)
@@ -262,6 +289,63 @@ void Menu::RightClick(sf::Vector2i pos)
 	
 }
 
+void Menu::SavePaletteColours()
+{
+
+	std::ofstream outputFile("data.pack", std::ios::binary);
+
+	// store the icon regardless
+	unsigned int icon_width = this->icon_dimensions.x;
+	unsigned int icon_height = this->icon_dimensions.y;
+	outputFile.write(reinterpret_cast<char*>(&icon_width), sizeof(icon_width));
+	outputFile.write(reinterpret_cast<char*>(&icon_height), sizeof(icon_height));
+	outputFile.write(reinterpret_cast<const char*>(this->icon_pixels.data()), icon_width * icon_height * 4);
+	outputFile.close();
+
+	int pal_count = 1;
+	for (auto palette : this->palettes)
+	{
+		outputFile.write(reinterpret_cast<char*>(pal_count), 1); // only going to 10, 1 byte is fine ## pal ID/number
+
+		std::vector<sf::Color> palette_colours = palette->GetColours();
+		outputFile.write(reinterpret_cast<char*>(palette_colours.size()), 1); // should be less than 200 colours per palette
+
+		for (sf::Color colour : palette_colours)
+		{
+			outputFile.write(reinterpret_cast<char*>(colour.r), 1);
+			outputFile.write(reinterpret_cast<char*>(colour.g), 1);
+			outputFile.write(reinterpret_cast<char*>(colour.b), 1);
+			//outputFile.write(reinterpret_cast<char*>(colour.a), 1);
+
+			std::cout << "saving colour on pallete " << pal_count << "R: " << colour.r << ", G: " << colour.g << ", B: " << colour.b << "\n";
+		}
+		pal_count++;
+	}
+
+
+
+	outputFile.close();
+}
+void Menu::LoadPaletteColours()
+{
+	std::ifstream inputFile("data.pack", std::ios::binary);
+	if (inputFile)
+	{
+		// Read the width and height of the image
+		unsigned int width, height;
+		inputFile.read(reinterpret_cast<char*>(&width), sizeof(width));
+		inputFile.read(reinterpret_cast<char*>(&height), sizeof(height));
+		
+		//skip the icon
+		inputFile.seekg(width * height * 4);
+
+		// check next byte
+		if (inputFile.peek() != EOF)
+		{
+			std::cout << "EXTRA BYTES!";
+		}		
+	}
+}
 void Menu::PopUpWindow(std::string title, std::string msg)
 {
 	sf::RenderWindow popUpWindow;

@@ -88,6 +88,12 @@ private:
 	sf::Text original_img_label;
 	sf::Text new_img_label;
 	sf::Text lastColourClicked;
+	sf::RectangleShape lastColourClickedBox;
+	sf::Text paletteColourTargetedText;
+	sf::RectangleShape paletteColourTargetedBox;
+	sf::Color paletteColourTargerted;
+
+	sf::Text test;
 
 
 public:

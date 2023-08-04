@@ -4,6 +4,8 @@
 #include "ColourPatcher.h"
 #include "SFML/Main.hpp"
 
+#include <fstream>
+
 //#include "DataPacket.h"
 
 #ifdef _DEBUG
@@ -12,6 +14,28 @@ int main()
 int WinMain()
 #endif
 {
+   
+
+#ifdef _GENERATEPACK
+
+    sf::Image icon;
+    icon.loadFromFile("Patcher_Icon.png");
+
+    const sf::Uint8* pixels = icon.getPixelsPtr();
+    std::size_t size = icon.getSize().x * icon.getSize().y * 4;
+
+    unsigned int width = icon.getSize().x;
+    unsigned int height = icon.getSize().y;
+
+    std::ofstream outputFile("data.pack", std::ios::binary);
+
+    // Get the current write position before writing width and height
+    outputFile.write(reinterpret_cast<char*>(&width), sizeof(width));
+    outputFile.write(reinterpret_cast<char*>(&height), sizeof(height));
+    outputFile.write(reinterpret_cast<const char*>(pixels), size);
+    outputFile.close();
+#endif
+
 
     ColourPatcher patcher;
     patcher.Start();

@@ -80,28 +80,35 @@ void Palette::Tick()
 				}
 				else
 				{
-					PaletteSquare* box_to_remove = 0;
-					for (auto box : this->palette_squares)
+					bool updatePaletteColours = false;
+					for (auto it = this->palette_squares.begin(); it != this->palette_squares.end(); ++it)
 					{
+						auto& box = *it;
+
 						if (box->palette_box.getGlobalBounds().contains(sf::Mouse::getPosition(this->palette_window).x, sf::Mouse::getPosition(this->palette_window).y))
 						{
-							if (!box->targeted)
+							if (box->targeted)
 							{
-								box->targeted = true;
+								// If the box is targeted, erase it from the vector and delete the object.
+								it = this->palette_squares.erase(it);
+								updatePaletteColours = true;
+								break; // Exit the loop early, no need to continue after erasing.
 							}
 							else
-								box_to_remove = box;
-
-							break;
+							{
+								// If the box is not targeted, mark it as targeted.
+								box->targeted = true;
+							}
 						}
 						else
+						{
+							// If the box is not clicked, untarget it.
 							box->targeted = false;
+						}
 					}
-					if (box_to_remove)
-					{
-						this->palette_squares.erase(std::remove(this->palette_squares.begin(), this->palette_squares.end(), box_to_remove), this->palette_squares.end());
+					if(updatePaletteColours)
 						this->CreatePaletteSquares();
-					}
+
 				}
 			}
 			else if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
@@ -144,11 +151,15 @@ void Palette::Tick()
 				
 				if (this->addingNewColour) continue;
 
-				for (auto box : this->palette_squares)
+				for (auto& box : this->palette_squares)
 				{
+					box->palette_box.setOutlineThickness(0.0);
 					if (box->palette_box.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(this->palette_window).x, sf::Mouse::getPosition(this->palette_window).y)))
 					{
-
+						box->palette_box.setOutlineThickness(1.5);
+						box->palette_box.setOutlineColor(sf::Color::Yellow);
+						this->paletteColourUpdated = true;
+						this->colourTargeted = box->palette_box.getFillColor();
 					}
 				}
 			}
@@ -156,7 +167,7 @@ void Palette::Tick()
 
 		if (!this->addingNewColour)
 		{
-			for (auto palette_square : this->palette_squares)
+			for (auto& palette_square : this->palette_squares)
 				this->palette_window.draw(palette_square->palette_box);
 
 			for (auto btn : this->buttons)
@@ -180,7 +191,7 @@ void Palette::Tick()
 
 		if (this->paletteActionClock.getElapsedTime().asSeconds() > 5)
 		{
-			for (auto box : this->palette_squares)
+			for (auto& box : this->palette_squares)
 				box->targeted = false;
 		}
 
@@ -189,7 +200,12 @@ void Palette::Tick()
 		this->palette_window.display();
 	}
 }
+sf::Color Palette::GetTargetedColour()
+{
+	this->paletteColourUpdated = false;
 
+	return this->colourTargeted;
+}
 void Palette::Open()
 {
 	if (!this->isOpen)
@@ -200,17 +216,7 @@ void Palette::Open()
 		Button* btn_new = new Button(sf::Vector2i(5, 5), sf::Vector2f(130, 30), this->BUTTON_BACKGROUND, this->BUTTON_BACKGROUND_HOVER, "Add Colour", this->font);
 		this->buttons.emplace_back(btn_new);
 
-		int _count = 0;
-		for (auto palColour : this->paletteColours)
-		{
-			PaletteSquare* palette_square = new PaletteSquare();
-			palette_square->palette_box.setSize(sf::Vector2f(20, 20));
-			palette_square->palette_box.setFillColor(palColour);
-			palette_square->palette_box.setPosition(10 + (30 * _count), 60);
-			this->palette_squares.emplace_back(palette_square);
-
-			++_count;
-		}
+		this->CreatePaletteSquares();
 	}
 }
 
@@ -218,6 +224,23 @@ void Palette::Close()
 {
 	// Let the tick close it aye
 	this->needsClose = true;
+}
+Palette::~Palette()
+{
+
+}
+int Palette::GetSize()
+{
+	return this->palette_squares.size() > 0 ? this->palette_squares.size() : 0;
+}
+std::vector<sf::Color> Palette::GetColours()
+{
+	std::vector<sf::Color> colours;
+
+	for (auto& box : this->palette_squares)
+		colours.emplace_back(box->palette_colour);
+
+	return colours;
 }
 void Palette::ModulateColourPicker(double hue)
 {
@@ -269,7 +292,6 @@ void Palette::ModulateColourPicker(double hue)
 		}
 	}
 }
-
 void Palette::CreatePaletteSquares()
 {
 	int y_ = 50;
@@ -279,6 +301,10 @@ void Palette::CreatePaletteSquares()
 
 	for (size_t i = 0; i < this->palette_squares.size(); i++)
 	{
+		// Check if the index is within the valid range of the vector.
+		if (i >= this->palette_squares.size() || this->palette_squares[i] == nullptr)
+			continue;
+
 		// Calculate the row and column positions based on 'i' (count_ in your original code).
 		int row = i / 10;      // Integer division to determine the row (0 to 9).
 		int column = i % 10;   // Modulo to determine the column (0 to 9).
@@ -294,5 +320,6 @@ void Palette::CreatePaletteSquares()
 		y_ += 50;
 
 		this->palette_squares[i]->palette_box.setPosition(x_, y_);
+		this->palette_squares[i]->palette_box.setOutlineColor(sf::Color::Yellow);
 	}
 }

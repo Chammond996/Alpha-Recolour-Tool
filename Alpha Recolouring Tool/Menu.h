@@ -25,13 +25,29 @@ class Menu
 
 		void HelpWindow();
 
+		sf::Color paletteColourTargeted;
+		bool paletteTargetColourUpdated = false;
+
 		void NewPalette();
 		void LoadPalettes();
 		void PopUpWindow(std::string title, std::string msg);
 		void OpenPalette(std::string name);
+		~Menu();
+
+
+		void LoadPaletteColours();
+		void SavePaletteColours();
+		std::vector<sf::Color> palette_colours[10];
+		
 
 public:
 	Menu(unsigned size_x, unsigned size_y, sf::Color bg, sf::Color bg_hover);
+
+	std::vector<sf::Uint8> icon_pixels;
+	sf::Vector2i icon_dimensions;
+	bool loaded = false;
+
+
 	void TickPalettes();
 
 	sf::Font GetFont() { return this->font; }
@@ -43,6 +59,12 @@ public:
 	void RightClick(sf::Vector2i pos);
 
 	std::vector<std::string> actions_to_call;
+
+	bool PaletteTargetColourUpdated();
+
+	sf::Color GetPaletteTargetColour() { return this->paletteColourTargeted; }
+
+	void Save();
 };
 
 
