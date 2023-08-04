@@ -28,7 +28,7 @@ class Menu
 		sf::Color paletteColourTargeted;
 		bool paletteTargetColourUpdated = false;
 
-		void NewPalette();
+		void NewPalette(bool force = false);
 		void LoadPalettes();
 		void PopUpWindow(std::string title, std::string msg);
 		void OpenPalette(std::string name);

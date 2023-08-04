@@ -131,14 +131,16 @@ void ColourPatcher::LeftClick(sf::Vector2i pos)
 
 		for (auto box : boxes)
 		{
+			box->palette_box.setOutlineThickness(0);
 			if (box->palette_box.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)))
 			{
+				box->palette_box.setOutlineThickness(1.5);
 				sf::Color box_colour = box->palette_box.getFillColor();
 				//this->lastColourClicked.setFillColor(box_colour);
 				this->lastColourClicked.setString("Last Colour Clicked - R:" + std::to_string(box_colour.r) + ", G:" + std::to_string(box_colour.g) + ", B:" + std::to_string(box_colour.b));
 				this->lastColourClickedBox.setFillColor(box_colour);
 				this->lastColourClickedBox.setPosition(this->lastColourClicked.getGlobalBounds().width + 10 + this->lastColourClicked.getPosition().x, 45);
-				break;
+				//break;
 			}
 		}
 	}
@@ -149,6 +151,24 @@ void ColourPatcher::RightClick(sf::Vector2i pos)
 		return;
 
 	this->menu->RightClick(pos);
+
+	if (this->loaded > 0)
+	{
+		std::vector<PaletteSquare*> boxes;
+		boxes = this->images[this->current_selection]->new_palette;
+		//boxes.insert(boxes.end(), this->images[this->current_selection]->new_palette.begin(), this->images[this->current_selection]->new_palette.end());
+
+		for (auto box : boxes)
+		{
+			if (box->palette_box.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)))
+			{
+				box->palette_box.setOutlineColor(sf::Color::Magenta);
+				box->palette_box.setOutlineThickness(1.5);
+				continue;
+			}
+			box->palette_box.setOutlineThickness(0);
+		}
+	}
 }
 void ColourPatcher::DoActions()
 {
@@ -261,6 +281,7 @@ void ColourPatcher::LoadImages()
 		this->lastColourClicked.setString("Last Colour Clicked: n/a");
 		this->lastColourClicked.setPosition(10, 45);
 		this->lastColourClickedBox.setSize(sf::Vector2f(20, 20));
+		this->lastColourClickedBox.setFillColor(sf::Color(15, 15, 15));
 		this->lastColourClickedBox.setPosition(this->lastColourClicked.getGlobalBounds().width + 10 + this->lastColourClicked.getPosition().x, 45);
 
 		this->paletteColourTargetedText.setFont(this->font);
@@ -270,6 +291,7 @@ void ColourPatcher::LoadImages()
 		this->paletteColourTargetedText.setPosition(this->window_size_x/2, 45);
 		this->paletteColourTargetedBox.setSize(sf::Vector2f(20, 20));
 		this->paletteColourTargetedBox.setPosition((this->window_size_x / 2) + this->paletteColourTargetedText.getGlobalBounds().width + 10, 45);
+		this->paletteColourTargetedBox.setFillColor(sf::Color(15, 15, 15));
 
 		int i = 0;
 		int amount = 0;
@@ -377,6 +399,7 @@ px_check_loop:
 				PaletteSquare* square = new PaletteSquare();
 				square->palette_box.setSize(sf::Vector2f(10, 10));
 				square->palette_box.setFillColor(px_colour);
+				square->palette_box.setOutlineColor(sf::Color::Yellow);
 				square->palette_colour = px_colour;
 
 				int y_ = 0;

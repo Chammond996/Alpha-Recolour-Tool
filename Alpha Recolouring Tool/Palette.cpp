@@ -56,10 +56,11 @@ void Palette::Tick()
 			{
 				if (this->paletteActionClock.getElapsedTime().asMilliseconds() < 100)
 					return;
+
+				this->paletteActionClock.restart();
+
 				if (this->addingNewColour)
 				{
-
-					this->paletteActionClock.restart();
 
 					// Get the mouse position in window coordinates
 					sf::Vector2i mousePosition = sf::Mouse::getPosition(this->palette_window);
@@ -67,12 +68,7 @@ void Palette::Tick()
 					// Check if the mouse is within the color wheel's boundaries
 					if (mousePosition.x >= 0 && mousePosition.x < 256 && mousePosition.y >= 0 && mousePosition.y < 256)
 					{
-						PaletteSquare* new_square = new PaletteSquare();
-						new_square->palette_colour = this->activeColour;
-						new_square->palette_box.setSize(sf::Vector2f(20, 20));
-						new_square->palette_box.setFillColor(this->activeColour);
-						
-						this->palette_squares.emplace_back(new_square);
+						this->AddColour(this->activeColour);
 						this->CreatePaletteSquares();
 						this->addingNewColour = false;
 						break;
@@ -81,16 +77,14 @@ void Palette::Tick()
 				else
 				{
 					bool updatePaletteColours = false;
-					for (auto it = this->palette_squares.begin(); it != this->palette_squares.end(); ++it)
+					for (auto &boxes : this->palette_squares)
 					{
-						auto& box = *it;
-
+						auto &box = boxes;
 						if (box->palette_box.getGlobalBounds().contains(sf::Mouse::getPosition(this->palette_window).x, sf::Mouse::getPosition(this->palette_window).y))
 						{
 							if (box->targeted)
 							{
-								// If the box is targeted, erase it from the vector and delete the object.
-								it = this->palette_squares.erase(it);
+								this->DeleteColour(box->palette_colour);
 								updatePaletteColours = true;
 								break; // Exit the loop early, no need to continue after erasing.
 							}
@@ -98,14 +92,13 @@ void Palette::Tick()
 							{
 								// If the box is not targeted, mark it as targeted.
 								box->targeted = true;
+								//box->palette_box.setOutlineThickness(1.5);
+								break;
+
 							}
 						}
-						else
-						{
-							// If the box is not clicked, untarget it.
-							box->targeted = false;
-						}
 					}
+					
 					if(updatePaletteColours)
 						this->CreatePaletteSquares();
 
@@ -137,7 +130,7 @@ void Palette::Tick()
 					}
 				}
 				std::cout << "Clicked Palette " << this->name << "\n";
-				for (auto btn : this->buttons)
+				for (auto &btn : this->buttons)
 				{
 					if(!btn->bg.getGlobalBounds().contains(sf::Mouse::getPosition(this->palette_window).x, sf::Mouse::getPosition(this->palette_window).y))
 						continue;
@@ -170,7 +163,7 @@ void Palette::Tick()
 			for (auto& palette_square : this->palette_squares)
 				this->palette_window.draw(palette_square->palette_box);
 
-			for (auto btn : this->buttons)
+			for (auto &btn : this->buttons)
 			{
 				if (!btn->show)
 					continue;
@@ -225,9 +218,55 @@ void Palette::Close()
 	// Let the tick close it aye
 	this->needsClose = true;
 }
+void Palette::DeleteColour(sf::Color colour)
+{
+	std::vector<sf::Color> temp_colours = this->paletteColours;
+	this->paletteColours.clear();
+	
+	for (auto temp_c : temp_colours)
+	{
+		if (temp_c != colour)
+			this->paletteColours.emplace_back(temp_c);
+	}
+	
+
+	PaletteSquare* square_to_remove = nullptr;
+	for (auto& square : this->palette_squares)
+	{
+		if (square->palette_colour == colour)
+			square_to_remove = square;
+	}
+	if (square_to_remove)
+	{
+		this->palette_squares.erase(std::remove(this->palette_squares.begin(), this->palette_squares.end(), square_to_remove));
+		delete square_to_remove;
+	}
+	
+}
+void Palette::AddColour(sf::Color colour)
+{
+	PaletteSquare* new_square = new PaletteSquare();
+	new_square->palette_colour = colour;
+	new_square->palette_box.setSize(sf::Vector2f(20, 20));
+	new_square->palette_box.setFillColor(colour);
+
+	this->palette_squares.emplace_back(new_square);
+	this->paletteColours.emplace_back(colour);
+}
 Palette::~Palette()
 {
 
+}
+void Palette::Wipe()
+{
+	for (auto& square : this->palette_squares)
+		delete square;
+	for (auto& btn : this->buttons)
+		delete btn;
+
+	this->palette_squares.clear();
+	this->paletteColours.clear();
+	this->buttons.clear();
 }
 int Palette::GetSize()
 {
@@ -235,12 +274,7 @@ int Palette::GetSize()
 }
 std::vector<sf::Color> Palette::GetColours()
 {
-	std::vector<sf::Color> colours;
-
-	for (auto& box : this->palette_squares)
-		colours.emplace_back(box->palette_colour);
-
-	return colours;
+	return this->paletteColours;
 }
 void Palette::ModulateColourPicker(double hue)
 {

@@ -75,7 +75,7 @@ bool Menu::LoadData()
 	if (!this->font.loadFromFile("font.ttf"))
 		return false;
 
-
+	return true;
 }
 
 void Menu::HelpWindow()
@@ -119,9 +119,9 @@ void Menu::HelpWindow()
 	}
 }
 
-void Menu::NewPalette()
+void Menu::NewPalette(bool force)
 {
-	if (this->action_timer.getElapsedTime() < sf::seconds(3))
+	if (this->action_timer.getElapsedTime() < sf::seconds(3) && !force)
 		return;
 
 	this->action_timer.restart();
@@ -131,7 +131,7 @@ void Menu::NewPalette()
 		this->PopUpWindow("Uhh Oh!!", "Maximum palettes reached (10)");
 		return;
 	}
-	Palette* new_palette = new Palette("Palette " + std::to_string(this->palettes.size()+1), this->font);
+	Palette* new_palette = new Palette("Palette " + std::to_string(this->palettes.size()+1), this->palettes.size()+1, this->font);
 	this->palettes.emplace_back(new_palette);
 
 	this->LoadPalettes();
@@ -144,12 +144,16 @@ void Menu::LoadPalettes()
 	int yOffset = 80;
 	for (auto palette : this->palettes)
 	{
+		palette->Wipe();
 		_count++;
 		yOffset = 40 * _count;
 		Button* palette_new_btn = new Button(sf::Vector2i(200, 40 + yOffset), sf::Vector2f(100, 40), this->menu_bar.getFillColor(), this->menu_bar_hover.getFillColor(), palette->GetName(), this->GetFont());
 		palette_new_btn->show = false;
 		palette_new_btn->palleteDropDown = true;
 		this->buttons.emplace_back(palette_new_btn);
+
+		for (auto& colour : this->palette_colours[palette->GetID()])
+			palette->AddColour(colour);
 	}
 }
 
@@ -184,7 +188,7 @@ void Menu::TickPalettes()
 		if (palette->IsColourUpdated())
 		{
 			this->paletteColourTargeted = palette->GetTargetedColour();
-			std::cout << "Colour update! New colour targeted from palette " << palette->GetName() << "\n";
+			std::cout << "Menu Colour update! New colour targeted from palette " << palette->GetName() << "\n";
 			this->paletteTargetColourUpdated = true;
 		}
 	}
@@ -300,27 +304,44 @@ void Menu::SavePaletteColours()
 	outputFile.write(reinterpret_cast<char*>(&icon_width), sizeof(icon_width));
 	outputFile.write(reinterpret_cast<char*>(&icon_height), sizeof(icon_height));
 	outputFile.write(reinterpret_cast<const char*>(this->icon_pixels.data()), icon_width * icon_height * 4);
-	outputFile.close();
 
-	int pal_count = 1;
-	for (auto palette : this->palettes)
+	char pal_count = 1;
+	for (auto& palette : this->palettes)
 	{
-		outputFile.write(reinterpret_cast<char*>(pal_count), 1); // only going to 10, 1 byte is fine ## pal ID/number
-
 		std::vector<sf::Color> palette_colours = palette->GetColours();
-		outputFile.write(reinterpret_cast<char*>(palette_colours.size()), 1); // should be less than 200 colours per palette
 
-		for (sf::Color colour : palette_colours)
+		outputFile.write(reinterpret_cast<char*>(&pal_count), 1); // pal ID/number
+
+		// Assuming palette_colours is a std::vector<sf::Color>
+		unsigned char num_colors = static_cast<unsigned char>(palette_colours.size());
+		outputFile.write(reinterpret_cast<char*>(&num_colors), 1); // should be less than 200 colours per palette
+
+		std::vector<sf::Color> dupe_check_list;
+		for (sf::Color &colour : palette_colours)
 		{
-			outputFile.write(reinterpret_cast<char*>(colour.r), 1);
-			outputFile.write(reinterpret_cast<char*>(colour.g), 1);
-			outputFile.write(reinterpret_cast<char*>(colour.b), 1);
-			//outputFile.write(reinterpret_cast<char*>(colour.a), 1);
+			bool dupe_found = false;
+			for (auto& dupe_check : dupe_check_list)
+			{
+				if (dupe_check == colour)
+				{
+					dupe_found = true;
+					break;
+				}
+			}
+			if (dupe_found)
+				continue;
 
-			std::cout << "saving colour on pallete " << pal_count << "R: " << colour.r << ", G: " << colour.g << ", B: " << colour.b << "\n";
+			outputFile.write(reinterpret_cast<char*>(&colour.r), 1);
+			outputFile.write(reinterpret_cast<char*>(&colour.g), 1);
+			outputFile.write(reinterpret_cast<char*>(&colour.b), 1);
+			outputFile.write(reinterpret_cast<char*>(&colour.a), 1);
+
+			std::cout << "saving colour on palette " << static_cast<int>(pal_count) << " R: " << static_cast<int>(colour.r) << ", G: " << static_cast<int>(colour.g) << ", B: " << static_cast<int>(colour.b) << ", A: " << static_cast<int>(colour.a) << "\n";
 		}
+
 		pal_count++;
 	}
+
 
 
 
@@ -335,17 +356,36 @@ void Menu::LoadPaletteColours()
 		unsigned int width, height;
 		inputFile.read(reinterpret_cast<char*>(&width), sizeof(width));
 		inputFile.read(reinterpret_cast<char*>(&height), sizeof(height));
-		
-		//skip the icon
-		inputFile.seekg(width * height * 4);
 
-		// check next byte
-		if (inputFile.peek() != EOF)
+		// Skip the icon
+		inputFile.seekg(width * height * 4, std::ios::cur);
+
+		while (inputFile.peek() != EOF)
 		{
-			std::cout << "EXTRA BYTES!";
-		}		
+			unsigned char pal_number = 0;   // Use unsigned char for 1-byte value
+			unsigned char pal_colour_amt = 0;  // Use unsigned char for 1-byte value
+			inputFile.read(reinterpret_cast<char*>(&pal_number), 1);
+			inputFile.read(reinterpret_cast<char*>(&pal_colour_amt), 1);
+
+			for (int i = 0; i < pal_colour_amt; i++)
+			{
+				unsigned char r, g, b, a;
+				inputFile.read(reinterpret_cast<char*>(&r), 1);
+				inputFile.read(reinterpret_cast<char*>(&g), 1);
+				inputFile.read(reinterpret_cast<char*>(&b), 1);
+				inputFile.read(reinterpret_cast<char*>(&a), 1);
+				this->palette_colours[pal_number].push_back(sf::Color(static_cast<int>(r), static_cast<int>(g), static_cast<int>(b), static_cast<int>(a)));
+			}
+
+			std::cout << "FOUND Palette " << static_cast<int>(pal_number) << " storing " << static_cast<int>(pal_colour_amt) << " colours!\n";
+			this->NewPalette(true);
+
+		}
+
+		inputFile.close();
 	}
 }
+
 void Menu::PopUpWindow(std::string title, std::string msg)
 {
 	sf::RenderWindow popUpWindow;
