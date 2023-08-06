@@ -19,13 +19,15 @@ private:
 
 	Menu* menu = nullptr;
 
-	struct Actions
+	struct ColourAction
 	{
+	private:
+	public:
+		ColourAction(sf::Color original, sf::Color new_colour) : original_colour(original), new_colour(new_colour) {};
 		sf::Color original_colour;
 		sf::Color new_colour;
+		bool completed = false;
 	};
-	std::vector<Actions> actions;
-
 	struct PaletteSquare
 	{
 		sf::RectangleShape palette_box;
@@ -44,7 +46,9 @@ private:
 		std::string name;
 		std::vector<PaletteSquare* > original_palette;
 		std::vector<PaletteSquare* > new_palette;
+		bool edited = false;
 	};
+	std::vector<ColourAction*> colourActions;
 	std::vector<Images*> images;
 	unsigned loaded = 0;
 
@@ -52,7 +56,9 @@ private:
 	std::string window_name = "ART 0.0.1";
 	unsigned window_size_x = 1000;
 	unsigned window_size_y = 800;
-	bool window_resizeable = true;
+	bool window_resizeable = false;
+
+	sf::Clock clickClock;
 
 
 	void RunLoop();
@@ -63,6 +69,9 @@ private:
 
 	void DoActions();
 	void LoadImages();
+	void SaveImages();
+
+	void Undo();
 
 	void Draw(sf::RenderWindow& window);
 
@@ -70,7 +79,11 @@ private:
 
 	void GetPalette(Images* img, bool updated = false);
 
+	void ChangeColour(Images* image, sf::Color original, sf::Color newColour);
 
+	sf::Font font;
+
+	// Sprite selection
 	int current_selection = 0;
 	sf::RectangleShape image_slider;
 	sf::RectangleShape image_slider_notch;
@@ -80,9 +93,17 @@ private:
 		sf::Text txt;
 	};
 	bool update_slider = false;
-	sf::Font font;
 	std::vector<SliderTexts*> slider_texts;
 	sf::Text current_slide;
+
+	// Sprite Scale
+	int current_scale = 1;
+	enum SCALES {
+		MIN = 1,
+		MAX = 10
+	};
+	sf::Text ScaleText;
+	bool updateScale = false;
 
 
 	sf::Text original_img_label;

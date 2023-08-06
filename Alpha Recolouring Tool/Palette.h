@@ -38,18 +38,21 @@ private:
 	void CreatePaletteSquares();
 
 	sf::Text colourWheelText;
+	sf::RectangleShape colourWheelDemo;
 	
 
 	sf::Clock paletteActionClock;
 
 	bool paletteColourUpdated = false;
 	sf::Color colourTargeted;
+	sf::Vector2i icon_dimensions;
+	std::vector<sf::Uint8> icon_pixels;
 
 
 	void DeleteColour(sf::Color colour);
 
 public:
-	Palette(std::string name, char id, sf::Font font) : name(name), font(font), id(id)
+	Palette(std::string name, char id, sf::Font font, sf::Vector2i icon_dimensions, std::vector<sf::Uint8> icon_pixels) : name(name), font(font), id(id), icon_dimensions(icon_dimensions), icon_pixels(icon_pixels)
 	{
 		this->colourWheel = sf::VertexArray(sf::Points, 256 * 256);
 		for (unsigned int y = 0; y <= 255; ++y)
@@ -67,6 +70,10 @@ public:
 		this->colourWheelText.setCharacterSize(16);
 		this->colourWheelText.setFillColor(this->BUTTON_BACKGROUND);
 		this->colourWheelText.setString("Use arrows to change hue\n           <-- /  --> \nLeft click to sample\nRight click to set colour\n   R: n/a, G: n/a, B: n/a");
+
+		this->colourWheelDemo.setPosition(350, 150);
+		this->colourWheelDemo.setSize(sf::Vector2f(30, 30));
+		this->colourWheelDemo.setFillColor(sf::Color::Black);
 	}
 	~Palette();
 

@@ -126,6 +126,7 @@ void Palette::Tick()
 						sf::Color clickedColor = this->colourWheel[vertexIndex].color;
 						this->activeColour = clickedColor;
 						this->colourWheelText.setString("Use arrows to change hue\n           <-- /  --> \nLeft click to sample\nRight click to set colour\n   R: " + std::to_string(clickedColor.r) + ", G: " + std::to_string(clickedColor.g) + ", B : " + std::to_string(clickedColor.b));
+						this->colourWheelDemo.setFillColor(clickedColor);
 						break;
 					}
 				}
@@ -180,6 +181,7 @@ void Palette::Tick()
 		{
 			this->palette_window.draw(this->colourWheel);
 			this->palette_window.draw(this->colourWheelText);
+			this->palette_window.draw(this->colourWheelDemo);
 		}
 
 		if (this->paletteActionClock.getElapsedTime().asSeconds() > 5)
@@ -205,6 +207,7 @@ void Palette::Open()
 	{
 		this->isOpen = true;
 		this->palette_window.create(sf::VideoMode(500, 300), name, sf::Style::Close);
+		this->palette_window.setIcon(this->icon_dimensions.x, this->icon_dimensions.y, this->icon_pixels.data());
 
 		Button* btn_new = new Button(sf::Vector2i(5, 5), sf::Vector2f(130, 30), this->BUTTON_BACKGROUND, this->BUTTON_BACKGROUND_HOVER, "Add Colour", this->font);
 		this->buttons.emplace_back(btn_new);

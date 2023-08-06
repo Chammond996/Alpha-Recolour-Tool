@@ -30,7 +30,7 @@ Menu::Menu(unsigned size_x, unsigned size_y, sf::Color bg, sf::Color bg_hover)
 	Button* palette_btn = new Button(sf::Vector2i(200, 0), sf::Vector2f(100, 40), this->menu_bar.getFillColor(), this->menu_bar_hover.getFillColor(), "Palette", this->GetFont());
 	this->buttons.emplace_back(palette_btn);
 
-	Button* preview_btn = new Button(sf::Vector2i(300, 0), sf::Vector2f(100, 40), this->menu_bar.getFillColor(), this->menu_bar_hover.getFillColor(), "Preview", this->GetFont());
+	Button* preview_btn = new Button(sf::Vector2i(300, 0), sf::Vector2f(100, 40), this->menu_bar.getFillColor(), this->menu_bar_hover.getFillColor(), "Undo", this->GetFont());
 	this->buttons.emplace_back(preview_btn);
 
 	Button* help_btn = new Button(sf::Vector2i(400, 0), sf::Vector2f(100, 40), this->menu_bar.getFillColor(), this->menu_bar_hover.getFillColor(), "Help", this->GetFont());
@@ -78,46 +78,6 @@ bool Menu::LoadData()
 	return true;
 }
 
-void Menu::HelpWindow()
-{
-
-	sf::RenderWindow helpWindow;
-	
-	std::string helpInfo = "Load - Loads all images from the 'images/' folder. \n";
-				helpInfo += "Save - Saves all modified images to the 'recolours/' folder. \n";
-				helpInfo += "Palette - Select a palette or create new ones \n";
-				helpInfo += "Preview - Apply the changes. \n";
-				helpInfo += "Left + Right Arrows - Scrolls the slider\n";
-
-
-	sf::Text helpText;
-	helpText.setString(helpInfo);
-	helpText.setCharacterSize(18);
-	helpText.setFillColor(sf::Color::Black);//sf::Color(99, 99, 99, 255));
-	helpText.setFont(this->font);
-	helpText.setPosition(10, 10);
-
-	helpWindow.create(sf::VideoMode(helpText.getLocalBounds().width+20, helpText.getLocalBounds().height+20), "Alpha Recolouring Tool Help", sf::Style::Close);
-							
-
-	while (helpWindow.isOpen())
-	{
-		sf::Event event;
-		while (helpWindow.pollEvent(event))
-		{
-			if (event.type == sf::Event::Closed) {
-				helpWindow.close();
-				break;
-			}
-		}
-
-		helpWindow.clear(this->menu_bar_hover.getFillColor()); //sf::Color(15, 15, 15));
-		helpWindow.draw(helpText);
-		helpWindow.display();
-		sf::sleep(sf::milliseconds(100));
-		
-	}
-}
 
 void Menu::NewPalette(bool force)
 {
@@ -131,7 +91,7 @@ void Menu::NewPalette(bool force)
 		this->PopUpWindow("Uhh Oh!!", "Maximum palettes reached (10)");
 		return;
 	}
-	Palette* new_palette = new Palette("Palette " + std::to_string(this->palettes.size()+1), this->palettes.size()+1, this->font);
+	Palette* new_palette = new Palette("Palette " + std::to_string(this->palettes.size()+1), this->palettes.size()+1, this->font, this->icon_dimensions, this->icon_pixels);
 	this->palettes.emplace_back(new_palette);
 
 	this->LoadPalettes();
@@ -232,6 +192,7 @@ void Menu::CursorMoved(sf::Vector2i pos)
 	this->cursorPos = pos;
 
 	bool show_palette_subs = false;
+
 	for (Button* btn : this->buttons)
 	{
 		if (btn->bg.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)))
@@ -239,12 +200,28 @@ void Menu::CursorMoved(sf::Vector2i pos)
 		else
 			btn->hover = false;
 
-		if (btn->bg.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)) && btn->GetName().find("Palette") != std::string::npos)
-		{
-			show_palette_subs = true;
-		}
 
+		if (btn->bg.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)) && btn->GetName() == "Palette")
+		{
+			this->paletteButtonHovered = true;
+		}
 	}
+	sf::Vector2i paletteMenuDropdownArea(0, 0);
+
+	for (auto& sub : this->buttons)
+	{
+		if (sub->GetName().find("Palette") != std::string::npos)
+		{
+			paletteMenuDropdownArea.x = sub->bg.getPosition().x;
+			paletteMenuDropdownArea.y += sub->bg.getPosition().y;
+
+		}
+		if (sub->bg.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)) && this->paletteButtonHovered)
+			show_palette_subs = true;
+	}
+	if (!show_palette_subs && this->paletteButtonHovered)
+		this->paletteButtonHovered = false;
+
 	for (auto sub : this->buttons)
 	{
 		if (sub->palleteDropDown)
@@ -264,10 +241,14 @@ int Menu::LeftClick(sf::Vector2i pos)
 				this->HelpWindow();
 			else if (btn->GetName() == "New Palette")
 				this->NewPalette();
+			else if (btn->GetName() == "Undo")
+				this->actions_to_call.emplace_back(btn->GetName());
+			else if (btn->GetName() == "Save")
+				this->actions_to_call.emplace_back("Save");
 
 			for (auto palette : this->palettes)
 			{
-				if (btn->GetName() == palette->GetName())
+				if (btn->GetName() == palette->GetName() && btn->show)
 				{
 					if (palette->IsOpen())
 					{
@@ -400,9 +381,10 @@ void Menu::PopUpWindow(std::string title, std::string msg)
 	popUpText.setFont(this->font);
 	popUpText.setPosition(10, 10);
 
-	unsigned _width = std::min(int(popUpText.getLocalBounds().width + 20), 300);
 
-	popUpWindow.create(sf::VideoMode(_width, popUpText.getLocalBounds().height + 20), title, sf::Style::Close);
+	popUpWindow.create(sf::VideoMode(popUpText.getLocalBounds().width + 20, popUpText.getLocalBounds().height + 20), title, sf::Style::Close);
+
+	popUpWindow.setIcon(this->icon_dimensions.x, this->icon_dimensions.y, this->icon_pixels.data());
 
 
 	while (popUpWindow.isOpen())
@@ -419,6 +401,52 @@ void Menu::PopUpWindow(std::string title, std::string msg)
 		popUpWindow.clear(this->menu_bar_hover.getFillColor()); //sf::Color(15, 15, 15));
 		popUpWindow.draw(popUpText);
 		popUpWindow.display();
+		sf::sleep(sf::milliseconds(100));
+
+	}
+}
+void Menu::HelpWindow()
+{
+
+	sf::RenderWindow helpWindow;
+
+	std::string helpInfo = "Load - Loads all images from the 'images/' folder. \n";
+	helpInfo += "Save - Saves all modified images to the 'recolours/' folder. \n";
+	helpInfo += "Palette - Select a palette or create new ones \n";
+	helpInfo += "Undo - Cycle back changes made 1 by 1. \n";
+	helpInfo += "Left + Right Arrows - Scrolls the slider\n";
+	helpInfo += "Up + Down Arrows -  Adjusts the image scale\n\n";
+	helpInfo += "Replacing colours - Once a palette has been created and\n";
+	helpInfo += "you've got a set of colours, click the palette colour to target it\n";
+	helpInfo += "on the main editor screen (top right), then simply right click the\n";
+	helpInfo += "'new image' palette to target and again to change.";
+
+
+	sf::Text helpText;
+	helpText.setString(helpInfo);
+	helpText.setCharacterSize(18);
+	helpText.setFillColor(sf::Color::Black);//sf::Color(99, 99, 99, 255));
+	helpText.setFont(this->font);
+	helpText.setPosition(10, 10);
+
+	helpWindow.create(sf::VideoMode(helpText.getLocalBounds().width + 20, helpText.getLocalBounds().height + 20), "Alpha Recolouring Tool Help", sf::Style::Close);
+	helpWindow.setIcon(this->icon_dimensions.x, this->icon_dimensions.y, this->icon_pixels.data());
+
+
+	while (helpWindow.isOpen())
+	{
+		sf::Event event;
+		while (helpWindow.pollEvent(event))
+		{
+			if (event.type == sf::Event::Closed) {
+				helpWindow.close();
+				break;
+			}
+		}
+
+		helpWindow.clear(this->menu_bar_hover.getFillColor()); //sf::Color(15, 15, 15));
+		helpWindow.draw(helpText);
+		helpWindow.display();
 		sf::sleep(sf::milliseconds(100));
 
 	}

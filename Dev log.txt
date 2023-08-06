@@ -1,0 +1,16 @@
+# Current:
+- Loads BMPS, max 100 - may increase to 250
+- Create and save up to 10 palettes
+- Scroll through sprites
+- scroll up/down scale
+- Undo - finally
+- Very basic UI
+
+TODO / BUGS:
+- Large or wide sprites just dont display properly at all (spells are shagged)
+- Update the UI, clean it up
+- Add support for PNG
+- Add support to export BMP->PNG & vise versa
+- potential redo button?
+- When scaling the sprites will go off screen - scale window also (maybe)
+- Handle output properly

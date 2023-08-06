@@ -21,6 +21,7 @@ class Menu
 
 		sf::Vector2i cursorPos;
 
+		bool paletteButtonHovered = false;
 		bool LoadData();
 
 		void HelpWindow();
@@ -30,7 +31,6 @@ class Menu
 
 		void NewPalette(bool force = false);
 		void LoadPalettes();
-		void PopUpWindow(std::string title, std::string msg);
 		void OpenPalette(std::string name);
 		~Menu();
 
@@ -63,6 +63,8 @@ public:
 	bool PaletteTargetColourUpdated();
 
 	sf::Color GetPaletteTargetColour() { return this->paletteColourTargeted; }
+
+	void PopUpWindow(std::string title, std::string msg);
 
 	void Save();
 };

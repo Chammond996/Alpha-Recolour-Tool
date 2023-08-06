@@ -72,21 +72,28 @@ void ColourPatcher::RunLoop()
 
 				this->update_slider = true;
 			}
+			else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))
+			{
+				if (this->current_scale < SCALES::MAX)
+					this->current_scale++;
+
+				this->updateScale = true;
+			}
+			else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))
+			{
+				if (this->current_scale > SCALES::MIN)
+					this->current_scale--;
+
+				this->updateScale = true;
+			}
+			/*
 			else if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
 			{
 				for (auto pal : this->images[this->current_selection]->original_palette)
 					std::cout << std::to_string(pal->palette_box.getFillColor().r) << "," << std::to_string(pal->palette_box.getFillColor().b) << ","
 					<< std::to_string(pal->palette_box.getFillColor().b) << "," << std::to_string(pal->palette_box.getFillColor().a) << "\n";
 			}
-		}
-
-		if (this->update_slider)
-		{
-			this->update_slider = false;
-			int position_to_mark = 100 + ((this->window_size_x - 200) / this->images.size()) * this->current_selection;
-
-			this->current_slide.setString("Current Slide: " + std::to_string(this->current_selection));
-			this->image_slider_notch.setPosition(position_to_mark, 90);
+			*/
 		}
 		
 
@@ -113,6 +120,12 @@ void ColourPatcher::LeftClick(sf::Vector2i pos)
 	if (!this->menu)
 		return;
 	this->menu->LeftClick(pos);
+
+	if (this->clickClock.getElapsedTime().asMicroseconds() < 200)
+		return;
+
+	this->clickClock.restart();
+
 
 	for (auto txt : this->slider_texts)
 	{
@@ -152,6 +165,11 @@ void ColourPatcher::RightClick(sf::Vector2i pos)
 
 	this->menu->RightClick(pos);
 
+	if (this->clickClock.getElapsedTime().asMicroseconds() < 200)
+		return;
+
+	this->clickClock.restart();
+
 	if (this->loaded > 0)
 	{
 		std::vector<PaletteSquare*> boxes;
@@ -162,8 +180,17 @@ void ColourPatcher::RightClick(sf::Vector2i pos)
 		{
 			if (box->palette_box.getGlobalBounds().contains(sf::Vector2f(pos.x, pos.y)))
 			{
+				if (box->palette_box.getOutlineThickness() == 1.5f)
+				{
+					ColourAction* act = new ColourAction(box->palette_box.getFillColor(), this->paletteColourTargerted);
+					this->colourActions.push_back(act);
+					std::cout << "Colour changing action pushed\n";
+					return;
+				}
+
 				box->palette_box.setOutlineColor(sf::Color::Magenta);
 				box->palette_box.setOutlineThickness(1.5);
+				std::cout << "Targeting colour to change!!!\n";
 				continue;
 			}
 			box->palette_box.setOutlineThickness(0);
@@ -188,9 +215,48 @@ void ColourPatcher::DoActions()
 
 		if (act == "Load")
 			this->LoadImages();
+		else if (act == "Undo")
+			this->Undo();
+		else if (act == "Save")
+			this->SaveImages();
 
 	}
 	this->menu->actions_to_call.clear();
+
+	int _count = 0;
+	for (auto& act : this->colourActions)
+	{
+		if (act->completed) continue;
+
+		std::cout << "Executing action " << ++_count << "\n";
+		
+		for (auto& img : this->images)
+			this->ChangeColour(img, act->original_colour, act->new_colour);
+		act->completed = true;
+	}
+
+	if (this->update_slider)
+	{
+		this->update_slider = false;
+		int position_to_mark = 100 + ((this->window_size_x - 200) / this->images.size()) * this->current_selection;
+
+		this->current_slide.setString("Current Slide: " + std::to_string(this->current_selection));
+		this->image_slider_notch.setPosition(position_to_mark, 90);
+	}
+
+	if (this->updateScale)
+	{
+		std::string new_scale = std::to_string(100 * this->current_scale);
+		this->ScaleText.setString(new_scale + "%");
+		for (auto& img : this->images)
+		{
+			img->new_sprite.setScale(this->current_scale, this->current_scale);
+			img->original_sprite.setScale(this->current_scale, this->current_scale);
+
+			img->original_sprite.setPosition((this->window_size_x / 2) - (100 + (img->original_image.getSize().x * this->current_scale)), 250);
+		}
+		this->updateScale = false;
+	}
 }
 void ColourPatcher::CursorMoved(sf::Vector2i pos)
 {
@@ -236,7 +302,8 @@ void ColourPatcher::LoadImages()
 					this->GetPalette(img);
 					this->GetPalette(img, true);
 
-					this->loaded++;
+					if (++this->loaded >= 100)
+						break;
 				}
 			}
 		}
@@ -248,6 +315,8 @@ void ColourPatcher::LoadImages()
 
 	if (this->loaded > 0)
 	{
+		// Image selection slider
+
 		this->image_slider.setSize(sf::Vector2f(this->window_size_x - 200, 10));
 		this->image_slider.setPosition(100, 100);
 		this->image_slider.setFillColor(sf::Color(99, 99, 99, 255));
@@ -262,6 +331,14 @@ void ColourPatcher::LoadImages()
 		this->current_slide.setFillColor(sf::Color(99, 99, 99, 255));
 		this->current_slide.setString("Current Slide: " + std::to_string(this->current_selection));
 		this->current_slide.setPosition(sf::Vector2f((this->window_size_x / 2) - 20 , 110));
+
+		// Image scale slider
+
+		this->ScaleText.setString("Scale : 100%");
+		this->ScaleText.setCharacterSize(14);
+		this->ScaleText.setFillColor(sf::Color(99, 99, 99, 255));
+		this->ScaleText.setPosition(10, 65);
+		this->ScaleText.setFont(this->font);
 
 		this->original_img_label.setFont(this->font);
 		this->original_img_label.setCharacterSize(16);
@@ -326,6 +403,52 @@ void ColourPatcher::LoadImages()
 	}
 }
 
+void ColourPatcher::SaveImages()
+{
+	namespace fs = std::filesystem;
+
+	fs::path directoryPath = "/images/recolours";
+
+	int _count = 0;
+	for (auto& img : this->images)
+	{
+		if (!img->edited)
+			continue;
+		if (!img->new_image.saveToFile("images/recolours/" + img->name))
+		{
+			this->menu->PopUpWindow("Ohh noo..", "Failed to save a recolour, check the folder 'images/recolours' exists!");
+			return;
+		}
+		else
+			_count++;
+	}
+	
+	if (_count)
+		this->menu->PopUpWindow("File save info", " Successful saved " + std::to_string(_count) + "/" + std::to_string(this->images.size()) + "  images!\n Check images/recolours/");
+}
+
+void ColourPatcher::Undo()
+{
+
+	if (this->colourActions.size() > 0)
+	{
+		sf::Color newColourToChangeBack = this->colourActions[this->colourActions.size() - 1]->new_colour;
+		sf::Color originalColour = this->colourActions[this->colourActions.size() - 1]->original_colour;
+
+		for (auto& img : this->images)
+			this->ChangeColour(img, newColourToChangeBack, originalColour);
+
+		delete this->colourActions[this->colourActions.size() - 1];
+		this->colourActions.pop_back();
+
+		std::cout << "UNDO USED\n";
+	}
+	else
+	{
+		this->menu->PopUpWindow("Uhh ohh!", "There's no actions to undo!");
+	}
+}
+
 void ColourPatcher::Draw(sf::RenderWindow& window)
 {
 
@@ -333,6 +456,8 @@ void ColourPatcher::Draw(sf::RenderWindow& window)
 	if (this->loaded > 0)
 	{
 		window.draw(this->image_slider);
+
+		window.draw(this->ScaleText);
 
 		for (auto slider_numbers : this->slider_texts)
 			window.draw(slider_numbers->txt);
@@ -442,6 +567,29 @@ px_check_loop:
         img->original_palette = palette_squares;
     else
         img->new_palette = palette_squares;
+}
+
+void ColourPatcher::ChangeColour(Images* img, sf::Color originalColour, sf::Color newColour)
+{
+	for (auto& pal : img->new_palette)
+	{
+		if (pal->palette_box.getFillColor() == originalColour)
+			pal->palette_box.setFillColor(newColour);
+	}
+
+	for (int x = 0; x < img->new_image.getSize().x; x++)
+	{
+		for (int y = 0; y < img->new_image.getSize().y; y++)
+		{
+			if (img->new_image.getPixel(x, y) == originalColour)
+			{
+				img->new_image.setPixel(x, y, newColour);
+				img->edited = true;
+			}
+		}
+	}
+	img->new_tx.update(img->new_image);
+	img->new_sprite.setTexture(img->new_tx);
 }
 
 
