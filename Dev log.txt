@@ -14,3 +14,5 @@ TODO / BUGS:
 - potential redo button?
 - When scaling the sprites will go off screen - scale window also (maybe)
 - Handle output properly
+- Removal of palettes needed
+- Undo needs tweaking

@@ -228,6 +228,7 @@ void ColourPatcher::DoActions()
 	{
 		if (act->completed) continue;
 
+
 		std::cout << "Executing action " << ++_count << "\n";
 		
 		for (auto& img : this->images)
